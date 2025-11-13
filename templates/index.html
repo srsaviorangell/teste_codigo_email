@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Classificador de Emails — Demo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <div class="header-section">
+      <div class="header-content">
+        <h1>📧 Classificador de Emails</h1>
+        <p class="subtitle">Análise inteligente com IA para categorizar e responder seus emails corporativos</p>
+      </div>
+    </div>
+
+    <form id="uploadForm" method="post" action="/process" enctype="multipart/form-data" class="form-section">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="nome" class="form-label">
+            <span class="label-icon">👤</span> Nome Completo
+          </label>
+          <input type="text" id="nome" name="nome" class="form-input" placeholder="Ex: João Silva" />
+        </div>
+
+        <div class="form-group">
+          <label for="assunto" class="form-label">
+            <span class="label-icon">📝</span> Assunto do Email
+          </label>
+          <input type="text" id="assunto" name="assunto" class="form-input" placeholder="Ex: Solicitação de informações" />
+        </div>
+
+        <div class="form-group">
+          <label for="email" class="form-label">
+            <span class="label-icon">✉️</span> Seu Email
+          </label>
+          <input type="email" id="email" name="email" class="form-input" placeholder="seu.email@empresa.com" />
+        </div>
+      </div>
+
+      <div class="form-group form-full">
+        <label for="text" class="form-label">
+          <span class="label-icon">📄</span> Conteúdo do Email
+        </label>
+        <textarea id="text" name="text" class="form-textarea" rows="10" placeholder="Cole aqui o corpo completo do email ou mensagem..."></textarea>
+        <small class="form-hint">caracteres para melhor análise</small>
+      </div>
+
+      <div class="form-divider">
+        <span>ou</span>
+      </div>
+
+      <div class="form-group form-full">
+        <label for="file" class="form-label">
+          <span class="label-icon">📎</span> Enviar Arquivo
+        </label>
+        <div class="file-input-wrapper">
+          <input type="file" id="file" name="file" class="form-file" accept=".txt,.pdf"/>
+          <label for="file" class="file-input-label">
+            <span class="file-icon">📁</span>
+            <span class="file-text">Clique aqui ou arraste arquivo (.txt ou .pdf)</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit" class="form-button">
+        <span class="button-icon">⚡</span> Processar Email
+      </button>
+    </form>
+
+    {% if result %}
+      <section class="result-card">
+        <div class="result-header">
+          <h2>Resultado da Análise</h2>
+          <span class="category-badge" data-category="{{ result.category }}">
+            {{ result.category }}
+          </span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <label>Categoria</label>
+            <strong>{{ result.category }}</strong>
+          </div>
+          <div class="metric">
+            <label>Confiança</label>
+            <div class="confidence-bar">
+              <div class="confidence-fill" id="confidenceFill" data-score="{{ result.score }}"></div>
+            </div>
+            <span>{{ result.score }}</span>
+          </div>
+        </div>
+
+        <div class="reply-section">
+          <div class="reply-header">
+            <h3>Resposta Sugerida</h3>
+            <button type="button" class="copy-btn" id="copyBtn" title="Copiar resposta">
+              <span>📋 Copiar</span>
+            </button>
+          </div>
+          <div class="reply-box" id="replyBox">{{ result.reply|safe }}</div>
+        </div>
+
+        <div class="result-actions">
+          <button type="button" class="new-analysis-btn" id="newAnalysisBtn">
+            <span>➕</span> Enviar Novo Email
+          </button>
+        </div>
+      </section>
+    {% endif %}
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const uploadForm = document.getElementById('uploadForm');
+      const resultCard = document.querySelector('.result-card');
+      const newAnalysisBtn = document.getElementById('newAnalysisBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const replyBox = document.getElementById('replyBox');
+
+      if (resultCard) {
+        uploadForm.style.display = 'none';
+      }
+
+      if (newAnalysisBtn) {
+        newAnalysisBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          
+          resultCard.style.animation = 'slideOut 0.3s ease-out forwards';
+          
+          setTimeout(() => {
+            resultCard.style.display = 'none';
+            uploadForm.style.display = 'flex';
+            
+            uploadForm.style.animation = 'slideIn 0.3s ease-out';
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            document.getElementById('nome').value = '';
+            document.getElementById('assunto').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('text').value = '';
+            document.getElementById('file').value = '';
+          }, 300);
+        });
+      }
+
+      const confidenceFill = document.getElementById('confidenceFill');
+      if (confidenceFill) {
+        const score = parseFloat(confidenceFill.dataset.score);
+        const percentage = Math.min(Math.max(score * 100, 0), 100);
+        confidenceFill.style.width = percentage + '%';
+      }
+
+      if (copyBtn && replyBox) {
+        copyBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const text = replyBox.innerText;
+          
+          navigator.clipboard.writeText(text).then(() => {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<span>✅ Copiado!</span>';
+            copyBtn.classList.add('copied');
+            
+            setTimeout(() => {
+              copyBtn.innerHTML = originalText;
+              copyBtn.classList.remove('copied');
+            }, 2000);
+          }).catch(err => {
+            console.error('Erro ao copiar:', err);
+            alert('Erro ao copiar para a área de transferência');
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>
