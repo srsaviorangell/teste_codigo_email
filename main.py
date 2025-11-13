@@ -3,6 +3,15 @@ from nlp import preprocess_text, classify_text, generate_reply
 from utils import read_file_text
 from dotenv import load_dotenv
 import re
+import os
+import joblib
+
+if not os.path.exists("models/tfidf_lr.joblib"):
+    from train_model import pipeline, TEXTS, LABELS
+    os.makedirs("models", exist_ok=True)
+    pipeline.fit(TEXTS, LABELS)
+    joblib.dump(pipeline, "models/tfidf_lr.joblib")
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -74,6 +83,5 @@ def process():
     return render_template("index.html", result=result)
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
