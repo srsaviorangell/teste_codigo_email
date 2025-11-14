@@ -98,7 +98,8 @@ def process():
             category=category,
             user_name=user_nome,
             user_email=user_email,
-            user_subject=user_assunto
+            user_subject=user_assunto,
+            classification_score=score  # PASSAR O SCORE REAL DA CLASSIFICACAO!
         )
 
         # Processar resposta JSON
