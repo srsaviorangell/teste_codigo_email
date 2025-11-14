@@ -2,9 +2,12 @@ import re
 import os
 import json
 import joblib
+import logging
 from typing import Tuple, Dict
 from nltk.stem import RSLPStemmer
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+logger = logging.getLogger(__name__)
 
 try:
     from nltk.corpus import stopwords
@@ -24,28 +27,35 @@ except Exception:
     stemmer = _DummyStemmer()
 
 MODEL_PATH = "models/tfidf_lr.joblib"
-vectorizer = None
-model = None
+pipeline = None
 
 def load_model():
-    global vectorizer, model
+    global pipeline
     if os.path.exists(MODEL_PATH):
         try:
             pipeline = joblib.load(MODEL_PATH)
-            print(f"✅ Modelo carregado de: {MODEL_PATH}")
-            return pipeline, pipeline
+            logger.info(f"[OK] Modelo carregado de: {MODEL_PATH}")
+            return pipeline
         except Exception as e:
-            print(f"⚠️ Erro ao carregar modelo: {e}")
-            return None, None
+            logger.error(f"[ERRO] Erro ao carregar modelo: {e}")
+            return None
     else:
-        print(f"⚠️ Modelo não encontrado em {MODEL_PATH}")
-        print("💡 Execute: python train_model.py")
-        return None, None
+        logger.warning(f"[AVISO] Modelo nao encontrado em {MODEL_PATH}")
+        logger.info("[INFO] Execute: python train_model.py")
+        return None
 
-pipeline, _ = load_model()
+pipeline = load_model()
 
 def preprocess_text(text: str) -> Dict:
     """Pré-processa o texto removendo stopwords e aplicando stemming."""
+    if not text:
+        return {
+            "original_text": "",
+            "clean_text": "",
+            "token_count": 0,
+            "word_count": 0
+        }
+    
     text = text.lower().strip()
     words = text.split()
     
@@ -78,13 +88,14 @@ def classify_text(clean_text: str) -> Tuple[str, float]:
             probabilities = pipeline.predict_proba([clean_text])[0]
             
             category = "Produtivo" if prediction == 1 else "Improdutivo"
-            confidence = max(probabilities)
+            confidence = float(max(probabilities))
             
+            logger.info(f"[OK] Classificacao com modelo: {category} ({confidence:.2f})")
             return category, confidence
         except Exception as e:
-            print(f"⚠️ Erro ao usar modelo: {e}")
+            logger.error(f"[ERRO] Erro ao usar modelo: {e}")
     
-    print("⚠️ Usando heurística (modelo não disponível)")
+    logger.warning("[AVISO] Usando heuristica (modelo nao disponivel)")
     
     words = clean_text.split()
     length = len(words)
@@ -129,24 +140,18 @@ genai_client = None
 if _has_genai and _genai_api_key:
     try:
         genai_client = genai.Client(api_key=_genai_api_key)
-        print("✅ Gemini AI habilitado")
+        logger.info("[OK] Gemini AI habilitado")
     except Exception as e:
-        print(f"⚠️ Erro ao inicializar Gemini: {e}")
+        logger.warning(f"[AVISO] Erro ao inicializar Gemini: {e}")
 
 def generate_reply(email_text: str, category: str, user_name: str = "", 
                    user_email: str = "", user_subject: str = "") -> str:
     """
     Gera resposta automática personalizada usando Gemini (se disponível) ou template.
     Retorna string JSON com {category, score, reply}.
-    
-    Args:
-        email_text: Corpo do email original
-        category: Categoria detectada (Produtivo/Improdutivo)
-        user_name: Nome do remetente
-        user_email: Email do remetente
-        user_subject: Assunto do email
     """
-    prompt = f"""Você é um assistente de suporte corporativo profissional e atencioso.
+    try:
+        prompt = f"""Você é um assistente de suporte corporativo profissional e atencioso.
 
 Dados do email recebido:
 - Remetente: {user_name if user_name else "Não informado"}
@@ -163,29 +168,38 @@ Gere uma resposta profissional, personalizada e concisa (máximo 6 linhas) que:
 4. Ofereça disponibilidade
 
 Não adicione explicações, apenas a resposta."""
-    
-    if genai_client:
-        try:
-            response = genai_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-            reply_text = response.text.strip()
-        except Exception as e:
-            print(f"⚠️ Erro ao chamar Gemini: {e}")
+        
+        if genai_client:
+            try:
+                response = genai_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt
+                )
+                reply_text = response.text.strip()
+                logger.info("[OK] Resposta gerada com Gemini")
+            except Exception as e:
+                logger.warning(f"[AVISO] Erro ao chamar Gemini: {e}")
+                reply_text = _get_template_reply(category, user_name, user_subject, email_text)
+        else:
             reply_text = _get_template_reply(category, user_name, user_subject, email_text)
-    else:
-        reply_text = _get_template_reply(category, user_name, user_subject, email_text)
+        
+        score = 0.85 if category == "Produtivo" else 0.65
+        
+        result = {
+            "category": category,
+            "score": score,
+            "reply": reply_text
+        }
+        
+        return json.dumps(result, ensure_ascii=False)
     
-    score = 0.85 if category == "Produtivo" else 0.65
-    
-    result = {
-        "category": category,
-        "score": score,
-        "reply": reply_text
-    }
-    
-    return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"[ERRO] Erro ao gerar resposta: {e}")
+        return json.dumps({
+            "category": "Erro",
+            "score": 0.0,
+            "reply": "Erro ao gerar resposta automatica."
+        }, ensure_ascii=False)
 
 def _get_template_reply(category: str, user_name: str = "", user_subject: str = "", 
                         email_text: str = "") -> str:

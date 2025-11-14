@@ -22,10 +22,10 @@ except:
 
 os.makedirs("models", exist_ok=True)
 
-print("🚀 Iniciando treinamento do modelo...")
-print(f"📊 Total de amostras: {len(TEXTS)}")
-print(f"✅ Produtivos: {sum(LABELS)}")
-print(f"❌ Improdutivos: {len(LABELS) - sum(LABELS)}")
+print("[INICIO] Iniciando treinamento do modelo...")
+print(f"[INFO] Total de amostras: {len(TEXTS)}")
+print(f"[OK] Produtivos: {sum(LABELS)}")
+print(f"[INFO] Improdutivos: {len(LABELS) - sum(LABELS)}")
 
 pipeline = Pipeline([
     ('tfidf', TfidfVectorizer(
@@ -44,14 +44,14 @@ pipeline = Pipeline([
     ))
 ])
 
-print("\n📚 Treinando modelo...")
+print("\n[TRAIN] Treinando modelo...")
 pipeline.fit(TEXTS, LABELS)
 
 model_path = "models/tfidf_lr.joblib"
 joblib.dump(pipeline, model_path)
-print(f"✅ Modelo salvo em: {model_path}")
+print(f"[OK] Modelo salvo em: {model_path}")
 
-print("\n🧪 Testando modelo:")
+print("\n[TEST] Testando modelo:")
 test_emails = [
     "Preciso de suporte urgente. Sistema fora do ar.",
     "Obrigado pela ajuda!",
@@ -64,6 +64,6 @@ for email in test_emails:
     proba = pipeline.predict_proba([email])[0]
     category = "Produtivo" if pred == 1 else "Improdutivo"
     confidence = max(proba) * 100
-    print(f"  📧 '{email[:40]}...' → {category} ({confidence:.1f}%)")
+    print(f"  [EMAIL] '{email[:40]}...' -> {category} ({confidence:.1f}%)")
 
-print("\n✨ Treinamento concluído!")
+print("\n[FIM] Treinamento concluido!")
