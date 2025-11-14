@@ -78,6 +78,18 @@ def classify_text(clean_text: str) -> Tuple[str, float]:
     """
     Classifica o texto usando modelo treinado (TF-IDF + LR).
     Se modelo não existir, usa heurística baseada em comprimento e contexto.
+    
+    CALCULO DE CONFIANCA:
+    - Se modelo disponivel: usa probabilidade do modelo (0.0-1.0)
+    - Se sem modelo: usa heuristica baseada em tamanho + palavras-chave
+      * Texto < 50 palavras + sem keywords = 0.20
+      * Texto < 50 palavras + com keywords = 0.30
+      * Texto 50-100 palavras + sem keywords = 0.31
+      * Texto 50-100 palavras + com keywords = 0.50
+      * Texto 100-200 palavras + sem keywords = 0.51
+      * Texto 100-200 palavras + com keywords = 0.65
+      * Texto > 200 palavras + sem keywords = 0.70
+      * Texto > 200 palavras + com keywords = 0.90
     """
     if not clean_text or len(clean_text.strip()) == 0:
         return "Improdutivo", 0.0

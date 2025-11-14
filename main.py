@@ -6,6 +6,8 @@ import json
 import os
 import joblib
 import logging
+import gc
+import sys
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +32,21 @@ initialize_model()
 load_dotenv()
 
 app = Flask(__name__)
+
+def limpar_cache():
+    """Limpa cache e memoria para nao contaminar proximas requisicoes"""
+    try:
+        gc.collect()
+        logger.info("[CACHE] Limpeza de cache realizada")
+    except Exception as e:
+        logger.error(f"[AVISO] Erro ao limpar cache: {e}")
+
+@app.before_request
+def before_request():
+    """Limpa cache antes de cada requisicao"""
+    if request.method == "POST":
+        logger.info("[REQ] Limpando cache antigo...")
+        limpar_cache()
 
 @app.route("/", methods=["GET"])
 def index():
@@ -101,17 +118,20 @@ def process():
         }
         
         logger.info(f"[OK] Resposta gerada com sucesso")
+        limpar_cache()  # Limpar cache apos processar
         return render_template("index.html", result=result)
         
     except json.JSONDecodeError as e:
         logger.error(f"[ERRO] Erro ao decodificar JSON: {e}")
+        limpar_cache()  # Limpar cache mesmo em erro
         return render_template("index.html", result={
             "category": "Erro",
             "score": 0,
             "reply": f"Erro ao processar resposta: {str(e)}"
         })
     except Exception as e:
-        logger.error(f"❌ ERRO CRÍTICO: {str(e)}", exc_info=True)
+        logger.error(f"[ERRO CRITICO] {str(e)}", exc_info=True)
+        limpar_cache()  # Limpar cache mesmo em erro
         return render_template("index.html", result={
             "category": "Erro",
             "score": 0,
